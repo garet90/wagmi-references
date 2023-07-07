@@ -13,7 +13,7 @@ import {
 } from 'viem'
 
 import { Connector } from './base'
-import type { StorageStoreData, WalletClient } from './types'
+import type { WalletClient } from './types'
 
 type WalletConnectOptions = {
   /**
@@ -85,7 +85,6 @@ type ConnectConfig = {
 }
 
 const NAMESPACE = 'eip155'
-const STORE_KEY = 'store'
 const REQUESTED_CHAINS_KEY = 'requestedChains'
 const ADD_ETH_CHAIN_METHOD = 'wallet_addEthereumChain'
 
@@ -110,16 +109,6 @@ export class WalletConnectConnector extends Connector<
 
   async connect({ chainId, pairingTopic }: ConnectConfig = {}) {
     try {
-      let targetChainId = chainId
-      if (!targetChainId) {
-        const store = this.storage?.getItem<StorageStoreData>(STORE_KEY)
-        const lastUsedChainId = store?.state?.data?.chain?.id
-        if (lastUsedChainId && !this.isChainUnsupported(lastUsedChainId))
-          targetChainId = lastUsedChainId
-        else targetChainId = this.chains[0]?.id
-      }
-      if (!targetChainId) throw new Error('No chains found on connector.')
-
       const provider = await this.getProvider()
       this.#setupListeners()
 
@@ -131,14 +120,14 @@ export class WalletConnectConnector extends Connector<
       // If there no active session, or the chains are stale, connect.
       if (!provider.session || isChainsStale) {
         const optionalChains = this.chains
-          .filter((chain) => chain.id !== targetChainId)
+          .filter((chain) => chain.id !== chainId)
           .map((optionalChain) => optionalChain.id)
 
         this.emit('message', { type: 'connecting' })
 
         await provider.connect({
           pairingTopic,
-          chains: [targetChainId],
+          chains: chainId ? [chainId] : undefined,
           optionalChains: optionalChains.length ? optionalChains : undefined,
         })
 
